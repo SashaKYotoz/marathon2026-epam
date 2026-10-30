@@ -1,0 +1,125 @@
+name: Frontend
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "frontend/restaurant-frontend-app/**"
+      - ".github/workflows/pr.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/restaurant-frontend-app/**"
+      - ".github/workflows/pr.yml"
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy the bundle to S3/CloudFront after the checks"
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  APP_DIR: frontend/restaurant-frontend-app
+  AWS_REGION: us-west-2
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check app
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Type-check specs
+        run: npx tsc -p tsconfig.spec.json --noEmit
+
+      - name: Build
+        env:
+          BACKEND_URL: https://example.com
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test -- --watch=false --browsers=ChromeHeadless
+
+  deploy:
+    needs: quality
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: frontend-deploy
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: frontend-${{ github.run_id }}
+
+      - name: Resolve backend URL, bucket and distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET="restaurant-frontend-${ACCOUNT_ID}"
+          if [ -n "${{ vars.BACKEND_URL }}" ]; then
+            BACKEND_URL="${{ vars.BACKEND_URL }}"
+          else
+            API_ID=$(aws apigateway get-rest-apis --region "$AWS_REGION" --query "items[?name=='restaurant-backend-api'].id | [0]" --output text)
+            BACKEND_URL="https://${API_ID}.execute-api.${AWS_REGION}.amazonaws.com/develop"
+          fi
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Origins.Items[0].DomainName=='${BUCKET}.s3.${AWS_REGION}.amazonaws.com'].Id | [0]" --output text)
+          echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
+          echo "BACKEND_URL=$BACKEND_URL" >> "$GITHUB_ENV"
+          echo "DISTRIBUTION_ID=$DISTRIBUTION_ID" >> "$GITHUB_ENV"
+          echo "Backend: $BACKEND_URL, bucket: $BUCKET, distribution: $DISTRIBUTION_ID"
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload to S3
+        run: aws s3 sync dist/restaurant-frontend-app/browser "s3://${BUCKET}/" --delete
+
+      - name: Invalidate CloudFront
+        if: env.DISTRIBUTION_ID != 'None' && env.DISTRIBUTION_ID != ''
+        run: aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"

@@ -1,0 +1,226 @@
+<section class="group-preorder">
+  <nav class="page-navigation" aria-label="Breadcrumb">
+    <a routerLink="/reservations">Reservations</a>
+    <span aria-hidden="true">›</span>
+    <span class="page-navigation__current">Group pre-order</span>
+  </nav>
+
+  <header class="group-preorder__header">
+    <h1>Group pre-order</h1>
+    <p class="group-preorder__hint">
+      See what everyone in your group has chosen, then confirm one pre-order for the restaurant.
+    </p>
+  </header>
+
+  @if (store.loading()) {
+    <p class="group-preorder__placeholder" role="status">Loading group pre-order...</p>
+  } @else if (store.loadError() && !store.groupReservationId()) {
+    <div class="group-preorder__error" role="alert">
+      <p data-testid="load-error">{{ store.loadError() }}</p>
+      <button type="button" class="button button--secondary button--large" (click)="retry()">Try again</button>
+    </div>
+  } @else {
+    @if (store.isSubmitted()) {
+      <section class="submitted-summary" role="status" data-testid="submitted-summary" aria-labelledby="submitted-title">
+        <h2 id="submitted-title">The pre-order has been sent to the restaurant</h2>
+        @if (store.consolidatedLines().length > 0) {
+          <ul class="submitted-summary__list" aria-label="Confirmed dishes">
+            @for (line of store.consolidatedLines(); track line.dishId) {
+              <li data-testid="consolidated-item" [attr.data-dish-id]="line.dishId" [attr.data-quantity]="line.quantity">
+                <span class="dish-name">{{ line.name }}</span>
+                <span class="dish-quantity">× {{ line.quantity }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    } @else if (store.isClosed()) {
+      <p class="group-preorder__notice" role="status" data-testid="group-closed">
+        This reservation is no longer open for a group pre-order.
+      </p>
+    }
+
+    <section class="participants" aria-labelledby="participants-title">
+      <div class="participants__header">
+        <h2 id="participants-title">Participants</h2>
+        <span class="participants__counter">{{ store.submittedCount() }} of {{ store.participants().length }} confirmed</span>
+      </div>
+
+      @if (!store.hasParticipants()) {
+        <p class="participants__empty" data-testid="participants-empty">
+          No one has joined yet. Share the invite link with your guests.
+        </p>
+      } @else {
+        <ul class="participants__list" aria-label="Participants">
+          @for (participant of participantViews(); track participant.id) {
+            <li
+              class="participant-card"
+              data-testid="participant-card"
+              [attr.data-participant-id]="participant.id"
+              [attr.data-participant-name]="participant.name"
+              [attr.data-submitted]="participant.isSubmitted"
+            >
+              <div class="participant-card__header">
+                <h3 class="participant-card__name">{{ participant.name }}</h3>
+                @if (participant.type === 'Owner') {
+                  <span class="badge badge--owner">Owner</span>
+                }
+                <span
+                  class="badge"
+                  data-testid="participant-status"
+                  [class.badge--confirmed]="participant.isSubmitted"
+                  [class.badge--pending]="!participant.isSubmitted"
+                >
+                  {{ participant.statusLabel }}
+                </span>
+              </div>
+
+              @if (participant.items.length === 0) {
+                <p class="participant-card__empty" data-testid="participant-no-dishes">No dishes yet</p>
+              } @else {
+                <ul class="participant-card__items" [attr.aria-label]="'Dishes of ' + participant.name">
+                  @for (item of participant.items; track item.dish.id) {
+                    <li
+                      data-testid="participant-item"
+                      [attr.data-dish-id]="item.dish.id"
+                      [attr.data-dish-name]="item.dish.name"
+                      [attr.data-quantity]="item.quantity"
+                      [attr.data-price]="item.dish.price"
+                    >
+                      <span class="dish-name">{{ item.dish.name }}</span>
+                      <span class="dish-quantity">× {{ item.quantity }}</span>
+                      <span class="dish-price">{{ item.dish.price * item.quantity | currency }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+
+              <div class="participant-card__footer">
+                <span class="participant-card__total" data-testid="participant-total" [attr.data-amount]="participant.total">
+                  Total: {{ participant.total | currency }}
+                </span>
+
+                @if (participant.removable) {
+                  @if (store.pendingRemovalId() === participant.id) {
+                    <span class="participant-card__confirm">
+                      <button
+                        type="button"
+                        class="button button--tertiary button--small"
+                        [disabled]="store.removingId() === participant.id"
+                        (click)="store.confirmRemoval(participant)"
+                      >
+                        Confirm removal
+                      </button>
+                      <button type="button" class="button button--secondary button--small" (click)="store.cancelRemoval()">
+                        Keep
+                      </button>
+                    </span>
+                  } @else {
+                    <button
+                      type="button"
+                      class="button button--tertiary button--small"
+                      [attr.aria-label]="'Remove ' + participant.name"
+                      (click)="store.requestRemoval(participant.id)"
+                    >
+                      Remove
+                    </button>
+                  }
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      }
+
+      <p class="group-total" data-testid="group-total" [attr.data-amount]="store.groupTotal()">
+        Group total: <strong>{{ store.groupTotal() | currency }}</strong>
+      </p>
+    </section>
+
+    @if (store.isEditable()) {
+      <section class="owner-cart" aria-labelledby="owner-cart-title">
+        <h2 id="owner-cart-title">My dishes</h2>
+
+        @if (store.ownerItems().length === 0) {
+          <p class="owner-cart__empty">You have not added any dishes yet.</p>
+        } @else {
+          <ul class="owner-cart__items" aria-label="My dishes">
+            @for (item of store.ownerItems(); track item.dish.id) {
+              <li data-testid="owner-cart-item" [attr.data-dish-id]="item.dish.id" [attr.data-quantity]="item.quantity">
+                <span class="dish-name">{{ item.dish.name }}</span>
+                <span class="dish-quantity">× {{ item.quantity }}</span>
+                @if (store.canEditOwnerCart()) {
+                  <button
+                    type="button"
+                    class="button button--secondary button--small"
+                    [attr.aria-label]="'Remove one ' + item.dish.name"
+                    (click)="store.removeOwnerDish(item.dish.id)"
+                  >
+                    −
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+          <p class="owner-cart__total">My total: {{ store.ownerTotal() | currency }}</p>
+        }
+
+        @if (store.ownerSubmitted()) {
+          <p class="owner-cart__confirmed" data-testid="owner-cart-confirmed">Your dishes are confirmed.</p>
+        } @else {
+          <button
+            type="button"
+            class="button button--secondary button--large"
+            [disabled]="store.ownerItems().length === 0 || store.ownerBusy()"
+            (click)="store.submitOwnerCart()"
+          >
+            Confirm my dishes
+          </button>
+        }
+
+        @if (store.canEditOwnerCart()) {
+          @if (store.menuLoading()) {
+            <p class="owner-cart__placeholder">Loading menu...</p>
+          } @else if (menuRows().length === 0) {
+            <p class="owner-cart__placeholder">The menu is empty.</p>
+          } @else {
+            <ul class="owner-menu" aria-label="Menu">
+              @for (row of menuRows(); track row.dish.id) {
+                <li class="owner-menu__row" data-testid="owner-menu-dish" [attr.data-dish-id]="row.dish.id">
+                  <span class="dish-name">{{ row.dish.name }}</span>
+                  <span class="dish-price">{{ row.dish.price | currency }}</span>
+                  <button
+                    type="button"
+                    class="button button--primary button--small"
+                    [attr.aria-label]="'Add ' + row.dish.name"
+                    [disabled]="store.ownerBusy()"
+                    (click)="store.addOwnerDish(row.dish.id)"
+                  >
+                    Add
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        }
+      </section>
+
+      <section class="group-actions" aria-label="Confirm group pre-order">
+        <button
+          type="button"
+          class="button button--primary button--large"
+          [disabled]="!store.canSubmit()"
+          (click)="store.submit()"
+        >
+          {{ store.submitting() ? 'Confirming...' : 'Confirm group pre-order' }}
+        </button>
+        <p class="group-actions__hint">
+          Only confirmed carts are sent. Identical dishes are combined into one line for the restaurant.
+        </p>
+        @if (store.submitError()) {
+          <p class="group-actions__error" role="alert" data-testid="submit-error">{{ store.submitError() }}</p>
+        }
+      </section>
+    }
+  }
+</section>
