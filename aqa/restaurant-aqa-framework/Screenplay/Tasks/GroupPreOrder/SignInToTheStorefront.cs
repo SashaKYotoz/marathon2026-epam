@@ -18,6 +18,7 @@ public sealed class SignInToTheStorefront(Requester who) : ITask
         await page.EvaluateAsync("() => { localStorage.clear(); sessionStorage.clear(); }");
 
         await actor.AttemptsToAsync(new SignInThroughTheLoginForm(email, password));
+        await page.WaitForFunctionAsync("() => localStorage.getItem('auth') !== null && localStorage.getItem('user') !== null");
     }
 
     private static (string Email, string Password) Credentials(CustomerAccount account) => (account.Email, account.Password);
