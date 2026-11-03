@@ -8,7 +8,7 @@ public sealed class ReservationDashboardPage(IPage page) : BasePage(page)
     public HeaderComponent Header { get; } = new(page);
     public CartComponent Cart { get; } = new(page);
 
-    private ILocator ReservationCards => Page.Locator("ul.reservation-list > li.card");
+    private ILocator ReservationCards => Page.Locator("ul.reservation-list app-card-reservation li.card");
     public ILocator EmptyState => Page.Locator(".reservation-empty");
 
     public Task NavigateAsync() => NavigateToAsync("/reservations");

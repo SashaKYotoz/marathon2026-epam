@@ -6,11 +6,11 @@ public sealed class SignInToTheStorefront(Requester who) : ITask
 {
     public async Task PerformAsAsync(Actor actor)
     {
-        var (email, password) = who switch
+        (string email, string password) = who switch
         {
             Requester.Owner => Credentials(actor.Recall<CustomerAccount>(GroupPreOrderPersonas.Owner)),
             Requester.Waiter => Credentials(actor.Recall<LocationWaiter>()),
-            _ => throw new ArgumentOutOfRangeException(nameof(who), who, "Only the owner and the waiter sign in to the storefront."),
+            _ => throw new InvalidOperationException($"Only the owner and the waiter sign in to the storefront, not {who}."),
         };
 
         var page = actor.LookingAtThePage();

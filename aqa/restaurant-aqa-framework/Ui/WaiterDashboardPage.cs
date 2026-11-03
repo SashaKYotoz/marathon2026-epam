@@ -5,7 +5,7 @@ namespace Restaurant_Aqa_Framework.Ui;
 
 public sealed class WaiterDashboardPage(IPage page) : BasePage(page)
 {
-    private ILocator ReservationCards => Page.Locator("ul.reservation-list > li.card");
+    private ILocator ReservationCards => Page.Locator("ul.reservation-list app-card-reservation li.card");
 
     public Task NavigateAsync() => NavigateToAsync("/waiter-reservations");
 

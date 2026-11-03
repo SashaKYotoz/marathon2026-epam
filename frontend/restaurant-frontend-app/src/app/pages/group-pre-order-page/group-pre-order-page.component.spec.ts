@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
+import { GroupParticipant } from '@app/models/group-pre-order/group-pre-order.model';
 import { GroupPreOrderService } from '@app/services/group-pre-order/group-pre-order.service';
 import { ToastService } from '@app/services/toast/toast.service';
 import { GroupPreOrderPageComponent } from './group-pre-order-page.component';
@@ -8,8 +9,8 @@ import { GroupPreOrderPageComponent } from './group-pre-order-page.component';
 describe('GroupPreOrderPageComponent', () => {
   let api: jasmine.SpyObj<GroupPreOrderService>;
 
-  async function render(participants: unknown[], total: number) {
-    api.getSessions$.and.returnValue(of({ participants, total } as never));
+  async function render(participants: GroupParticipant[], total: number) {
+    api.getSessions$.and.returnValue(of({ participants, total }));
 
     await TestBed.configureTestingModule({
       imports: [GroupPreOrderPageComponent],

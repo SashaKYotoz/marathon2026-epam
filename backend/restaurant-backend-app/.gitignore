@@ -486,4 +486,4 @@ $RECYCLE.BIN/
 # OAS - OpenAPI Specification
 export/
 
-.venv/
+./backend/restaurant-backend-app/syndicate_venv/

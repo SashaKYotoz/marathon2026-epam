@@ -9,6 +9,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+  profile = "marathon"
 }
 
 # Reserved for ACM certificates once a custom domain is added (CloudFront requires

@@ -7,6 +7,8 @@ namespace Restaurant_Aqa_Framework.Screenplay.Tasks.GroupPreOrder;
 
 public sealed class JoinTheGroup(string guestPersona, string bookingName = GroupPreOrderPersonas.MainBooking) : ITask
 {
+    private static readonly int[] SettledRemovalStatuses = [404, 409];
+
     public async Task PerformAsAsync(Actor actor)
     {
         var booking = actor.Recall<GroupBooking>(bookingName);
@@ -22,6 +24,7 @@ public sealed class JoinTheGroup(string guestPersona, string bookingName = Group
         var owner = actor.Recall<CustomerAccount>(booking.OwnerPersona);
         actor.Recall<CleanupScope>().TrackDelete(
             $"guest-session:{session.SessionId}",
-            () => groups.RemoveSessionAsync(booking.GroupReservationId, session.SessionId, owner.IdToken));
+            () => groups.RemoveSessionAsync(booking.GroupReservationId, session.SessionId, owner.IdToken),
+            SettledRemovalStatuses);
     }
 }

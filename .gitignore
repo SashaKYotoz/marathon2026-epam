@@ -28,4 +28,11 @@ crash.*.log
 # Claude Code local state and worktrees
 .claude/
 
+syndicate_venv/
+**/syndicate_venv/
+venv/
 .venv/
+env/
+__pycache__/
+*.py[cod]
+pip-log.txt

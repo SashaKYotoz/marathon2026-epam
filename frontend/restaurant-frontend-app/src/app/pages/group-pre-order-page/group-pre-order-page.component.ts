@@ -1,5 +1,5 @@
 import { CurrencyPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, NgZone, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
@@ -18,6 +18,7 @@ export const GROUP_PRE_ORDER_POLL_MS = 10000;
 })
 export class GroupPreOrderPageComponent {
   private readonly route = inject(ActivatedRoute);
+  private readonly zone = inject(NgZone);
   readonly store = inject(GroupPreOrderStore);
 
   readonly reservationId = toSignal(this.route.paramMap.pipe(map((params) => params.get('reservationId') ?? '')), {
@@ -51,7 +52,9 @@ export class GroupPreOrderPageComponent {
         return;
       }
 
-      const timer = setInterval(() => void this.store.refresh(true), GROUP_PRE_ORDER_POLL_MS);
+      const timer = this.zone.runOutsideAngular(() =>
+        setInterval(() => void this.store.refresh(true), GROUP_PRE_ORDER_POLL_MS),
+      );
       onCleanup(() => clearInterval(timer));
     });
   }

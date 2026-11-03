@@ -42,6 +42,7 @@ describe('GeneralInformationComponent', () => {
     error: jasmine.Spy;
   };
 
+  let originalFileReader: typeof FileReader;
   let readSpy: jasmine.Spy;
   let abortSpy: jasmine.Spy;
 
@@ -80,31 +81,41 @@ describe('GeneralInformationComponent', () => {
     readerResults = new WeakMap();
     readerStates = new WeakMap();
 
-    // Control callbacks without reading or decoding real files.
-    spyOnProperty(FileReader.prototype, 'result', 'get')
-      .and.callFake(function (this: FileReader) {
-      return readerResults.get(this) ?? null;
-    });
+    const states = readerStates;
+    const results = readerResults;
+    const created = readers;
 
-    spyOnProperty(FileReader.prototype, 'readyState', 'get')
-      .and.callFake(function (this: FileReader) {
-      return readerStates.get(this) ?? FileReader.EMPTY;
-    });
+    class FakeFileReader {
+      static readonly EMPTY = 0;
+      static readonly LOADING = 1;
+      static readonly DONE = 2;
 
-    readSpy = spyOn(
-      FileReader.prototype,
-      'readAsDataURL',
-    ).and.callFake(function (this: FileReader) {
-      readers.push(this);
-      readerStates.set(this, FileReader.LOADING);
-    });
+      onload: ((this: FileReader, event: ProgressEvent<FileReader>) => unknown) | null = null;
+      onerror: ((this: FileReader, event: ProgressEvent<FileReader>) => unknown) | null = null;
 
-    abortSpy = spyOn(
-      FileReader.prototype,
-      'abort',
-    ).and.callFake(function (this: FileReader) {
-      readerStates.set(this, FileReader.DONE);
-    });
+      get result(): string | null {
+        return results.get(this as unknown as FileReader) ?? null;
+      }
+
+      get readyState(): number {
+        return states.get(this as unknown as FileReader) ?? FakeFileReader.EMPTY;
+      }
+
+      readAsDataURL(): void {
+        created.push(this as unknown as FileReader);
+        states.set(this as unknown as FileReader, FakeFileReader.LOADING as FileReader['readyState']);
+      }
+
+      abort(): void {
+        states.set(this as unknown as FileReader, FakeFileReader.DONE as FileReader['readyState']);
+      }
+    }
+
+    originalFileReader = window.FileReader;
+    (window as unknown as { FileReader: unknown }).FileReader = FakeFileReader;
+
+    readSpy = spyOn(FakeFileReader.prototype, 'readAsDataURL').and.callThrough();
+    abortSpy = spyOn(FakeFileReader.prototype, 'abort').and.callThrough();
 
     spyOnProperty(
       HTMLImageElement.prototype,
@@ -143,6 +154,10 @@ describe('GeneralInformationComponent', () => {
       .compileComponents();
 
     createComponent();
+  });
+
+  afterEach(() => {
+    (window as unknown as { FileReader: unknown }).FileReader = originalFileReader;
   });
 
   function createComponent(): void {

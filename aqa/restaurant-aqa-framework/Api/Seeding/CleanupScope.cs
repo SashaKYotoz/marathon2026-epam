@@ -14,12 +14,12 @@ public sealed class CleanupScope(Action<string>? log = null) : IAsyncDisposable
     private readonly List<Func<Task>> _actions = [];
     private readonly Action<string> _log = log ?? (message => Console.Error.WriteLine(message));
 
-    public void TrackDelete(string label, Func<Task<IAPIResponse>> delete) => _actions.Add(async () =>
+    public void TrackDelete(string label, Func<Task<IAPIResponse>> delete, params int[] settledStatuses) => _actions.Add(async () =>
     {
         try
         {
             var response = await delete();
-            if (!response.Ok)
+            if (!response.Ok && !settledStatuses.Contains(response.Status))
             {
                 var error = await response.ReadErrorMessageAsync();
                 _log($"[CleanupScope] Best-effort cleanup of '{label}' returned {response.Status}: {error}");

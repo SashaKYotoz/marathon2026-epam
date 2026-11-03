@@ -23,6 +23,7 @@ public class ScenarioStageHooks(IObjectContainer container, ScenarioContext scen
     public async Task SetUpUiStage()
     {
         var settings = Settings.Current;
+        await StorefrontAvailability.EnsureReachableAsync(PlaywrightRunHooks.Playwright, settings.UiBaseUrl);
         var browserContext = await PlaywrightRunHooks.Browser.NewContextAsync(new BrowserNewContextOptions
         {
             BaseURL = settings.UiBaseUrl,
@@ -83,6 +84,9 @@ public class ScenarioStageHooks(IObjectContainer container, ScenarioContext scen
     [AfterScenario("ui", "api")]
     public async Task TearDownStage(ScenarioContext scenarioContext, IReqnrollOutputHelper outputHelper)
     {
+        if (!container.IsRegistered<IStageContext>())
+            return;
+
         var stage = container.Resolve<IStageContext>();
 
         // Dispose even if saving the trace throws, so a failed teardown never leaks a browser context.
